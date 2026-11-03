@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  adjacentImages,
   breadcrumbPathOf,
   fileBreadcrumbChildren,
   fileBreadcrumbs,
   fileFolderListing,
+  folderImages,
   isListableHostFolder,
   retainedBreadcrumbTrail,
 } from "./filePath";
@@ -115,7 +115,7 @@ describe("image folder navigation", () => {
     expect(listing("C:\\a.png")).toMatchObject({ cwd: "C:\\", reopened: "C:\\b.png" });
   });
 
-  it("steps through images only, in natural order, wrapping at both ends", () => {
+  it("lists only images, in natural order", () => {
     const entries = [
       { path: "shots/10-c.png", kind: "file" as const },
       { path: "shots/2-b.jpg", kind: "file" as const },
@@ -125,14 +125,9 @@ describe("image folder navigation", () => {
       { path: "shots/nested", kind: "directory" as const },
       { path: "shots/nested/x.png", kind: "file" as const },
     ];
-    expect(adjacentImages(entries, "shots", "1-a.png")).toEqual({
-      previous: "shots/10-c.png",
-      next: "shots/2-b.jpg",
-      position: 1,
-      count: 3,
-      paths: ["shots/1-a.png", "shots/2-b.jpg", "shots/10-c.png"],
-    });
-    expect(adjacentImages(entries, "shots", "10-c.png")?.next).toBe("shots/1-a.png");
-    expect(adjacentImages(entries.slice(0, 1), "shots", "10-c.png")).toBeNull();
+    const folder = folderImages(entries, "shots", "2-b.jpg");
+    expect(folder?.images.map((image) => image.label)).toEqual(["1-a.png", "2-b.jpg", "10-c.png"]);
+    expect(folder?.index).toBe(1);
+    expect(folderImages(entries.slice(0, 1), "shots", "10-c.png")).toBeNull();
   });
 });

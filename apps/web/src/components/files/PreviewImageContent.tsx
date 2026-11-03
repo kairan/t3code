@@ -35,6 +35,21 @@ export default function PreviewImageContent(props: {
       )
     : 1;
   const scale = zoom ?? fit;
+  const expandedPreview = () => {
+    const single = {
+      src: props.src,
+      name: props.name,
+      ...(props.mimeType ? { mimeType: props.mimeType } : {}),
+    };
+    if (!gallery) return { images: [single], index: 0 };
+    const preview = gallery();
+    return {
+      index: preview.index,
+      images: preview.images.map((image, index) =>
+        index === preview.index ? { ...image, src: props.src } : image,
+      ),
+    };
+  };
   const changeZoom = (factor: number) => setZoom(Math.max(0.05, Math.min(8, scale * factor)));
   if (failed) return <FileSurfaceFailure message="Unable to load image." />;
   return (
@@ -117,28 +132,7 @@ export default function PreviewImageContent(props: {
         </div>
       </div>
       {expanded ? (
-        <ExpandedImageDialog
-          preview={
-            gallery
-              ? {
-                  index: gallery.index,
-                  images: gallery.images.map((image, index) =>
-                    index === gallery.index ? { ...image, src: props.src } : image,
-                  ),
-                }
-              : {
-                  images: [
-                    {
-                      src: props.src,
-                      name: props.name,
-                      ...(props.mimeType ? { mimeType: props.mimeType } : {}),
-                    },
-                  ],
-                  index: 0,
-                }
-          }
-          onClose={() => setExpanded(false)}
-        />
+        <ExpandedImageDialog preview={expandedPreview()} onClose={() => setExpanded(false)} />
       ) : null}
     </>
   );

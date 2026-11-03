@@ -116,8 +116,8 @@ export function fileFolderListing(cwd: string, path: string) {
   };
 }
 
-/** Neighbouring images in the same folder, wrapping at both ends. */
-export function adjacentImages(
+/** The images in a folder, in file-list order, and which one is open. */
+export function folderImages(
   entries: readonly ProjectEntry[],
   directoryPath: string,
   name: string,
@@ -129,12 +129,5 @@ export function adjacentImages(
       !isWorkspaceVideoPreviewPath(entry.label),
   );
   const index = images.findIndex((entry) => entry.label === name);
-  if (index < 0 || images.length < 2) return null;
-  return {
-    previous: images.at(index - 1)!.path,
-    next: images[(index + 1) % images.length]!.path,
-    position: index + 1,
-    count: images.length,
-    paths: images.map((entry) => entry.path),
-  };
+  return index < 0 || images.length < 2 ? null : { images, index };
 }

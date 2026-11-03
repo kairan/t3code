@@ -28,6 +28,7 @@ import { expandedImageKey } from "./ExpandedImagePreview";
 import { registerThreadOverlay } from "./threadOverlayRetention";
 import { mediaReferenceFileName } from "@t3tools/client-runtime/media-reference";
 import { mediaMimeType, mediaMimeTypeFromExtension } from "@t3tools/shared/mediaPreview";
+import { MISSING_FILE_ACCESS_MESSAGE } from "@t3tools/client-runtime/state/assets";
 
 interface ExpandedImageDialogProps {
   preview: ExpandedImagePreview;
@@ -88,12 +89,20 @@ function ExpandedAssetImage({
   readonly ref: Ref<ZoomableImageHandle>;
 }) {
   const asset = item.actionsSource?.asset;
-  const assetUrl = useAssetUrlState(asset?.environmentId ?? null, asset?.resource ?? null);
+  const assetUrl = useAssetUrlState(
+    asset?.environmentId ?? null,
+    asset?.resource ?? null,
+    item.assetRevision,
+  );
   const [failed, setFailed] = useState(false);
   if (assetUrl._tag === "Failure" || failed) {
     return (
       <ExpandedMediaFailure>
-        <p>Image unavailable. The file may have been moved or deleted.</p>
+        <p>
+          {assetUrl._tag === "Failure" && assetUrl.reason === "missing-file-access"
+            ? MISSING_FILE_ACCESS_MESSAGE
+            : "Image unavailable. The file may have been moved or deleted."}
+        </p>
       </ExpandedMediaFailure>
     );
   }

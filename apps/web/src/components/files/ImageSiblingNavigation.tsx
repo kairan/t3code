@@ -6,14 +6,14 @@ import { type KeyboardEvent, type ReactNode, useRef } from "react";
 
 import { Button } from "~/components/ui/button";
 import type { ExpandedImagePreview } from "~/components/chat/ExpandedImagePreview";
-import { adjacentImages, fileBreadcrumbs, fileFolderListing } from "./filePath";
+import { fileFolderListing, folderImages } from "./filePath";
 import { workspaceAssetResource } from "./filePreviewMode";
 import { ImageGalleryContext } from "./imageGallery";
 import { useProjectEntriesQuery } from "./projectFilesQueryState";
 
-function scrollsHorizontally(from: EventTarget, boundary: HTMLElement): boolean {
+function scrollsHorizontally(from: Node, boundary: HTMLElement): boolean {
   for (
-    let node = from as HTMLElement | null;
+    let node = from instanceof HTMLElement ? from : from.parentElement;
     node && node !== boundary;
     node = node.parentElement
   ) {
@@ -40,48 +40,58 @@ export function ImageSiblingNavigation(props: {
     listing.directoryPath,
     props.workspaceMutationId,
   );
-  const siblings = entries.data
-    ? adjacentImages(entries.data.entries, listing.directoryPath, listing.name)
+  const folder = entries.data
+    ? folderImages(entries.data.entries, listing.directoryPath, listing.name)
+    : null;
+  const pathAt = (offset: number) => {
+    if (!folder) return null;
+    const { images, index } = folder;
+    return listing.openPath(images[(index + offset + images.length) % images.length]!.path);
+  };
+  const previous = pathAt(-1);
+  const next = pathAt(1);
+
+  const gallery = folder
+    ? (): ExpandedImagePreview => ({
+        index: folder.index,
+        images: folder.images.map((image) => {
+          const absolutePath = resolvePathLinkTarget(listing.openPath(image.path), props.cwd);
+          const resource = workspaceAssetResource({
+            kind: "workspace-file",
+            threadRef: props.threadRef,
+            draft: props.draft,
+            workspaceRoot: props.cwd,
+            absolutePath,
+          });
+          return {
+            src: null,
+            name: image.label,
+            ...(props.workspaceMutationId ? { assetRevision: props.workspaceMutationId } : {}),
+            actionsSource: {
+              kind: "image" as const,
+              name: image.label,
+              src: null,
+              reference: mediaFileReference(absolutePath, props.cwd),
+              asset: { environmentId: props.environmentId, resource },
+            },
+          };
+        }),
+      })
     : null;
 
-  const gallery: ExpandedImagePreview | null = siblings && {
-    index: siblings.position - 1,
-    images: siblings.paths.map((entryPath) => {
-      const absolutePath = resolvePathLinkTarget(listing.openPath(entryPath), props.cwd);
-      const reference = mediaFileReference(absolutePath, props.cwd);
-      const name = fileBreadcrumbs("", entryPath).at(-1)?.label ?? entryPath;
-      const resource = workspaceAssetResource({
-        kind: reference.relativePath !== undefined ? "workspace-file" : "media-file",
-        threadRef: props.threadRef,
-        draft: props.draft,
-        workspaceRoot: props.cwd,
-        absolutePath,
-      });
-      return {
-        src: null,
-        name,
-        actionsSource: {
-          kind: "image" as const,
-          name,
-          src: null,
-          reference,
-          asset: { environmentId: props.environmentId, resource },
-        },
-      };
-    }),
-  };
-
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (!siblings || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (previous === null || next === null || event.defaultPrevented) return;
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    // React bubbles keys from portals such as the full-size viewer; only this frame's own DOM navigates.
+    const target = event.target as Node;
+    if (!event.currentTarget.contains(target)) return;
     // A zoomed image keeps arrow keys for panning.
-    if (scrollsHorizontally(event.target, event.currentTarget)) return;
+    if (scrollsHorizontally(target, event.currentTarget)) return;
     event.preventDefault();
     // The focused image remounts with the next path, so keep focus on this stable frame.
     ref.current?.focus({ preventScroll: true });
-    props.onNavigate(
-      listing.openPath(event.key === "ArrowLeft" ? siblings.previous : siblings.next),
-    );
+    props.onNavigate(event.key === "ArrowLeft" ? previous : next);
   };
 
   return (
@@ -92,14 +102,14 @@ export function ImageSiblingNavigation(props: {
       className="relative flex min-h-0 flex-1 flex-col overflow-hidden outline-none"
     >
       <ImageGalleryContext value={gallery}>{props.children}</ImageGalleryContext>
-      {siblings ? (
+      {folder && previous !== null && next !== null ? (
         <>
           <div className="absolute top-1/2 left-2 z-10 -translate-y-1/2">
             <Button
               variant="glass"
               size="icon-sm"
               aria-label="Previous image"
-              onClick={() => props.onNavigate(listing.openPath(siblings.previous))}
+              onClick={() => props.onNavigate(previous)}
             >
               <ChevronLeftIcon />
             </Button>
@@ -109,7 +119,7 @@ export function ImageSiblingNavigation(props: {
               variant="glass"
               size="icon-sm"
               aria-label="Next image"
-              onClick={() => props.onNavigate(listing.openPath(siblings.next))}
+              onClick={() => props.onNavigate(next)}
             >
               <ChevronRightIcon />
             </Button>
@@ -118,7 +128,7 @@ export function ImageSiblingNavigation(props: {
             aria-live="polite"
             className="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-background/80 px-2 py-0.5 text-2xs text-muted-foreground tabular-nums shadow-sm"
           >
-            {siblings.position} / {siblings.count}
+            {folder.index + 1} / {folder.images.length}
           </div>
         </>
       ) : null}

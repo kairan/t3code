@@ -1,5 +1,9 @@
 import type { ProjectEntry } from "@t3tools/contracts";
 import { isWindowsAbsolutePath, isHostPath } from "@t3tools/shared/path";
+import {
+  isWorkspaceImagePreviewPath,
+  isWorkspaceVideoPreviewPath,
+} from "@t3tools/shared/filePreview";
 
 export interface FileBreadcrumb {
   label: string;
@@ -89,4 +93,41 @@ export function fileBreadcrumbParent(directoryPath: string): string | null {
   if (!directoryPath) return null;
   const separatorIndex = directoryPath.lastIndexOf("/");
   return separatorIndex === -1 ? "" : directoryPath.slice(0, separatorIndex);
+}
+
+/** The listing that holds an open file, and the path that reopens one of its entries. */
+export function fileFolderListing(cwd: string, path: string) {
+  const crumbs = fileBreadcrumbs("", path);
+  const name = crumbs.at(-1)?.label ?? path;
+  if (!isHostPath(path)) {
+    return {
+      cwd,
+      directoryPath: fileBreadcrumbParent(path) ?? "",
+      name,
+      openPath: (entryPath: string) => entryPath,
+    };
+  }
+  const folder = crumbs.at(-2)?.path ?? "/";
+  return {
+    cwd: folder,
+    directoryPath: "",
+    name,
+    openPath: (entryPath: string) => joinHostPath(folder, entryPath),
+  };
+}
+
+/** The images in a folder, in file-list order, and which one is open. */
+export function folderImages(
+  entries: readonly ProjectEntry[],
+  directoryPath: string,
+  name: string,
+) {
+  const images = fileBreadcrumbChildren(entries, directoryPath).filter(
+    (entry) =>
+      entry.kind === "file" &&
+      isWorkspaceImagePreviewPath(entry.label) &&
+      !isWorkspaceVideoPreviewPath(entry.label),
+  );
+  const index = images.findIndex((entry) => entry.label === name);
+  return index < 0 || images.length < 2 ? null : { images, index };
 }

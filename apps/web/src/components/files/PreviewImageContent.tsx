@@ -1,9 +1,10 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useContext, useLayoutEffect, useRef, useState } from "react";
 import { MaximizeIcon, MinusIcon, PlusIcon, ScanIcon } from "lucide-react";
 import { ExpandedImageDialog } from "~/components/chat/ExpandedImageDialog";
 import { observeResize } from "~/lib/observeResize";
 import { AttachmentImage } from "../media/AttachmentImage";
 import { FileSurfaceAction, FileSurfaceFailure } from "./fileSurfaceChrome";
+import { ImageGalleryContext } from "./imageGallery";
 
 export default function PreviewImageContent(props: {
   readonly src: string;
@@ -11,6 +12,7 @@ export default function PreviewImageContent(props: {
   readonly mimeType?: string;
   readonly onError?: () => void;
 }) {
+  const gallery = useContext(ImageGalleryContext);
   const [failed, setFailed] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [natural, setNatural] = useState({ width: 0, height: 0 });
@@ -33,6 +35,21 @@ export default function PreviewImageContent(props: {
       )
     : 1;
   const scale = zoom ?? fit;
+  const expandedPreview = () => {
+    const single = {
+      src: props.src,
+      name: props.name,
+      ...(props.mimeType ? { mimeType: props.mimeType } : {}),
+    };
+    if (!gallery) return { images: [single], index: 0 };
+    const preview = gallery();
+    return {
+      index: preview.index,
+      images: preview.images.map((image, index) =>
+        index === preview.index ? { ...image, src: props.src } : image,
+      ),
+    };
+  };
   const changeZoom = (factor: number) => setZoom(Math.max(0.05, Math.min(8, scale * factor)));
   if (failed) return <FileSurfaceFailure message="Unable to load image." />;
   return (
@@ -115,19 +132,7 @@ export default function PreviewImageContent(props: {
         </div>
       </div>
       {expanded ? (
-        <ExpandedImageDialog
-          preview={{
-            images: [
-              {
-                src: props.src,
-                name: props.name,
-                ...(props.mimeType ? { mimeType: props.mimeType } : {}),
-              },
-            ],
-            index: 0,
-          }}
-          onClose={() => setExpanded(false)}
-        />
+        <ExpandedImageDialog preview={expandedPreview()} onClose={() => setExpanded(false)} />
       ) : null}
     </>
   );

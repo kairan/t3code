@@ -31,6 +31,8 @@ export interface ExpandedImageItem {
   originalUrl?: string;
   srcFragment?: string;
   actionsSource?: MediaActionSource;
+  /** Re-mints the asset URL when the file's bytes can change under the same path. */
+  assetRevision?: string;
 }
 
 export interface ExpandedImagePreview {

@@ -1,8 +1,9 @@
-import { memo, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
+import { memo, useRef, useState, type ReactNode, type KeyboardEvent, type Ref } from "react";
 import { flushSync } from "react-dom";
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react";
 import { Image as ImageGlyph, Text as TextGlyph } from "lucide";
 import { Button } from "../ui/button";
+import { Spinner } from "../ui/spinner";
 import { MorphIcon } from "~/components/MorphIcon";
 import { Dialog, DialogPopup, DialogTitle } from "../ui/dialog";
 import type { ExpandedImageItem, ExpandedImagePreview } from "./ExpandedImagePreview";
@@ -27,6 +28,7 @@ import { expandedImageKey } from "./ExpandedImagePreview";
 import { registerThreadOverlay } from "./threadOverlayRetention";
 import { mediaReferenceFileName } from "@t3tools/client-runtime/media-reference";
 import { mediaMimeType, mediaMimeTypeFromExtension } from "@t3tools/shared/mediaPreview";
+import { MISSING_FILE_ACCESS_MESSAGE } from "@t3tools/client-runtime/state/assets";
 
 interface ExpandedImageDialogProps {
   preview: ExpandedImagePreview;
@@ -75,6 +77,49 @@ function ExpandedVideo({ item }: { readonly item: ExpandedImageItem }) {
       videoClassName="aspect-auto max-h-[var(--media-height)] w-auto max-w-[var(--media-width)] rounded-lg border border-border/70 shadow-2xl"
       stateClassName={EXPANDED_MEDIA_STATE_CLASS_NAME}
       onRetry={asset ? refreshAssetUrl : undefined}
+    />
+  );
+}
+
+function ExpandedAssetImage({
+  item,
+  ref,
+}: {
+  readonly item: ExpandedImageItem;
+  readonly ref: Ref<ZoomableImageHandle>;
+}) {
+  const asset = item.actionsSource?.asset;
+  const assetUrl = useAssetUrlState(
+    asset?.environmentId ?? null,
+    asset?.resource ?? null,
+    item.assetRevision,
+  );
+  const [failed, setFailed] = useState(false);
+  if (assetUrl._tag === "Failure" || failed) {
+    return (
+      <ExpandedMediaFailure>
+        <p>
+          {assetUrl._tag === "Failure" && assetUrl.reason === "missing-file-access"
+            ? MISSING_FILE_ACCESS_MESSAGE
+            : "Image unavailable. The file may have been moved or deleted."}
+        </p>
+      </ExpandedMediaFailure>
+    );
+  }
+  if (assetUrl._tag !== "Success") {
+    return (
+      <div className={EXPANDED_MEDIA_STATE_CLASS_NAME}>
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+  return (
+    <ZoomableImage
+      ref={ref}
+      src={assetUrl.url}
+      name={item.name}
+      mimeType={itemMimeType(item)}
+      onError={() => setFailed(true)}
     />
   );
 }
@@ -219,6 +264,8 @@ export const ExpandedImageDialog = memo(function ExpandedImageDialog({
                   className="h-[min(var(--media-height),40rem)] w-[min(var(--media-width),42rem)] transition-opacity duration-140 ease-out starting:opacity-0 rounded-lg border border-border/70 bg-background p-4 text-xs leading-5 shadow-2xl motion-reduce:transition-none"
                 />
               ) : null
+            ) : item.src === null && item.actionsSource?.asset ? (
+              <ExpandedAssetImage key={index} item={item} ref={zoomableImageRef} />
             ) : item.src === null || failedImageSrc === item.src ? (
               <ExpandedMediaFailure>
                 <p>

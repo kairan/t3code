@@ -4,6 +4,8 @@ import {
   breadcrumbPathOf,
   fileBreadcrumbChildren,
   fileBreadcrumbs,
+  fileFolderListing,
+  folderImages,
   isListableHostFolder,
   retainedBreadcrumbTrail,
 } from "./filePath";
@@ -88,5 +90,44 @@ describe("retainedBreadcrumbTrail", () => {
     ["\\\\nas\\share\\docs\\notes", "\\\\nas\\share", "\\\\nas\\share\\docs\\notes"],
   ])("from trail %j to %j keeps %j", (trail, path, expected) => {
     expect(retainedBreadcrumbTrail(trail, path)).toBe(expected);
+  });
+});
+
+describe("image folder navigation", () => {
+  it("lists the folder that holds a workspace or host file", () => {
+    const listing = (path: string) => {
+      const { openPath, ...rest } = fileFolderListing("/repo", path);
+      return { ...rest, reopened: openPath("b.png") };
+    };
+    expect(listing("shots/a.png")).toEqual({
+      cwd: "/repo",
+      directoryPath: "shots",
+      name: "a.png",
+      reopened: "b.png",
+    });
+    expect(listing("a.png")).toMatchObject({ cwd: "/repo", directoryPath: "" });
+    expect(listing("/tmp/shots/a.png")).toMatchObject({
+      cwd: "/tmp/shots",
+      directoryPath: "",
+      reopened: "/tmp/shots/b.png",
+    });
+    expect(listing("/a.png")).toMatchObject({ cwd: "/", reopened: "/b.png" });
+    expect(listing("C:\\a.png")).toMatchObject({ cwd: "C:\\", reopened: "C:\\b.png" });
+  });
+
+  it("lists only images, in natural order", () => {
+    const entries = [
+      { path: "shots/10-c.png", kind: "file" as const },
+      { path: "shots/2-b.jpg", kind: "file" as const },
+      { path: "shots/1-a.png", kind: "file" as const },
+      { path: "shots/clip.mp4", kind: "file" as const },
+      { path: "shots/notes.md", kind: "file" as const },
+      { path: "shots/nested", kind: "directory" as const },
+      { path: "shots/nested/x.png", kind: "file" as const },
+    ];
+    const folder = folderImages(entries, "shots", "2-b.jpg");
+    expect(folder?.images.map((image) => image.label)).toEqual(["1-a.png", "2-b.jpg", "10-c.png"]);
+    expect(folder?.index).toBe(1);
+    expect(folderImages(entries.slice(0, 1), "shots", "10-c.png")).toBeNull();
   });
 });

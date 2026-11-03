@@ -86,6 +86,7 @@ import { PreviewImage } from "./PreviewImage";
 import FileBrowserPanel from "./FileBrowserPanel";
 import { FileExplorerPane } from "./FileExplorerPane";
 import { FileBreadcrumbs } from "./FileBreadcrumbs";
+import { ImageSiblingNavigation } from "./ImageSiblingNavigation";
 import { breadcrumbPathOf, retainedBreadcrumbTrail, trailChildOf } from "./filePath";
 import { FileMarkdownPreview } from "./FileMarkdownPreview";
 import {
@@ -1379,16 +1380,26 @@ export default function FilePreviewPanel({
               workspaceMutationId={workspaceMutationId}
             />
           ) : relativePath && isImage && absolutePath ? (
-            <WorkspaceImagePreview
-              key={absolutePath}
+            <ImageSiblingNavigation
               environmentId={environmentId}
               threadRef={threadRef}
               draft={draft}
-              absolutePath={absolutePath}
-              workspaceRoot={cwd}
-              alt={relativePath}
+              cwd={cwd}
+              path={relativePath}
               workspaceMutationId={workspaceMutationId}
-            />
+              onNavigate={(path) => onNavigateFolder(path, path, false)}
+            >
+              <WorkspaceImagePreview
+                key={absolutePath}
+                environmentId={environmentId}
+                threadRef={threadRef}
+                draft={draft}
+                absolutePath={absolutePath}
+                workspaceRoot={cwd}
+                alt={relativePath}
+                workspaceMutationId={workspaceMutationId}
+              />
+            </ImageSiblingNavigation>
           ) : relativePath && renderBrowserFile && absolutePath ? (
             <WorkspaceBrowserPreview
               key={absolutePath}
